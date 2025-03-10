@@ -6,10 +6,10 @@ require("dotenv").config();
 app.use(bodyParser.json());
 
 // Cargar credenciales
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+//const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 const auth = new google.auth.GoogleAuth({
-  //keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-  credentials: credentials,
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  //credentials: credentials,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
