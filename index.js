@@ -2,12 +2,12 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const { google } = require("googleapis");
 const app = express();
-
+require("dotenv").config();
 app.use(bodyParser.json());
 
 // Cargar credenciales
 const auth = new google.auth.GoogleAuth({
-  keyFile: "centralizador-453301-583e19a2cb51.json",
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
