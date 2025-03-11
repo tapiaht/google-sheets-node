@@ -6,12 +6,15 @@ require("dotenv").config();
 app.use(bodyParser.json());
 
 const fs = require("fs");
-
-console.log("Ruta de credenciales:", process.env.GOOGLE_APPLICATION_CREDENTIALS);
-if (fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
-  console.log("✅ Archivo JSON encontrado");
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64) {
+  const jsonFilePath = "/tmp/google-key.json"; // Ruta temporal en Railway
+  fs.writeFileSync(jsonFilePath, Buffer.from(process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64, "base64").toString("utf-8"));
+  
+  // Configurar la variable GOOGLE_APPLICATION_CREDENTIALS
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = jsonFilePath;
+  console.log("✅ Clave de Google decodificada y guardada en:", jsonFilePath);
 } else {
-  console.log("❌ Archivo JSON no encontrado. Verifica la ruta.");
+  console.error("❌ No se encontró GOOGLE_APPLICATION_CREDENTIALS_BASE64");
 }
 // Cargar credenciales
 //const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
