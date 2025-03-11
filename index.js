@@ -75,6 +75,7 @@ app.post("/api/cargar-notas", async (req, res) => {
       let grado = curso
       grado = grado.replace(' ', '');
       // Leer datos de la hoja específica
+      console.log(grado)
       const response = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
           range: `${grado}!A2:G`,  // Leer desde la fila 2
