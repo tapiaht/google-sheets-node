@@ -34,11 +34,13 @@ app.get("/api/get-alumnos-por-curso", async (req, res) => {
   try {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
-    curso=curso.replace(' ', '');
+    
+    let grado=curso
+    grado=grado.replace(' ', '');
     // Leer directamente la hoja del curso
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${curso}!A:D`,  // Asume que cada curso tiene su propia hoja
+      range: `${grado}!A:D`,  // Asume que cada curso tiene su propia hoja
     });
 
     const rows = response.data.values;
@@ -70,12 +72,12 @@ app.post("/api/cargar-notas", async (req, res) => {
       }
       
       // Determinar la hoja correspondiente al curso (Ejemplo: PRIMEROA, SEGUNDOB, etc.)
-      const sheetName = curso.toUpperCase();
-      sheetName = sheetName.replace(' ', '');
+      let grado = curso
+      grado = grado.replace(' ', '');
       // Leer datos de la hoja específica
       const response = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: `${sheetName}!A2:G`,  // Leer desde la fila 2
+          range: `${grado}!A2:G`,  // Leer desde la fila 2
       });
       
       const alumnos = response.data.values;
@@ -93,7 +95,7 @@ app.post("/api/cargar-notas", async (req, res) => {
               const index = alumnos.indexOf(alumno);  // Índice del alumno en la hoja
               
               actualizarNotas.push({
-                  range: `${sheetName}!E${index + 2}:H${index + 2}`, // Actualiza notas en columnas E-H
+                  range: `${grado}!E${index + 2}:H${index + 2}`, // Actualiza notas en columnas E-H
                   values: [[
                       alumnoEnExcel[2] || '',
                       alumnoEnExcel[3] || '',
@@ -134,17 +136,18 @@ app.get("/api/obtener-notas", async (req, res) => {
   try {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
-    curso=curso.replace(' ', '');
+    let grado=curso
+    grado=grado.replace(' ', '');
     // Leer directamente la hoja del curso
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${curso}!A:F`,  // Ajustado para que tome el curso correcto
+      range: `${grado}!A:F`,  // Ajustado para que tome el curso correcto
     });
 
     const rows = response.data.values;
 
     if (!rows || rows.length === 0) {
-      return res.status(404).json({ message: `No se encontraron notas para el curso ${curso}` });
+      return res.status(404).json({ message: `No se encontraron notas para el curso ${grado}` });
     }
 
     res.json({ data: rows });
