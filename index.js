@@ -60,78 +60,71 @@ app.get("/api/get-alumnos-por-curso", async (req, res) => {
 
 // Ruta para cargar las notas a Google Sheets
 app.post("/api/cargar-notas", async (req, res) => {
-    const data = req.body.data;  // Los datos de las calificaciones que recibimos desde Excel
-    const curso = req.body.curso;  // El curso que se está trabajando
-    //console.log(data)
-    try {
+  const data = req.body.data;  // Datos de las calificaciones desde Excel
+  const curso = req.body.curso;  // Curso seleccionado
+  
+  try {
       const client = await auth.getClient();
       const sheets = google.sheets({ version: "v4", auth: client });
-  
-      // Verifica si data está presente y tiene contenido
+      
+      // Verificar si hay datos
       if (!data || data.length === 0) {
-        return res.status(400).json({ error: "No se han recibido datos válidos" });
+          return res.status(400).json({ error: "No se han recibido datos válidos" });
       }
-  
-      // 1. Leer todos los estudiantes del curso desde Google Sheets
+      
+      // Determinar la hoja correspondiente al curso (Ejemplo: PRIMEROA, SEGUNDOB, etc.)
+      const sheetName = curso.toUpperCase();
+      
+      // Leer datos de la hoja específica
       const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: "Sheet1!A2:G",  // Leer desde la fila 2 (para no sobrescribir encabezados)
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${sheetName}!A2:G`,  // Leer desde la fila 2
       });
-  
+      
       const alumnos = response.data.values;
       if (!alumnos) {
-        return res.status(400).json({ error: "No se encontraron datos en la hoja de Google Sheets" });
+          return res.status(400).json({ error: "No se encontraron datos en la hoja de Google Sheets" });
       }
-  
-      // 2. Filtrar solo los estudiantes del curso seleccionado
-      const alumnosDelCurso = alumnos.filter(alumno => alumno[2] === curso);
-      //const alumnosDelCurso = alumnos.filter(alumno => console.log(alumno[2]));
       
-      // 3. Preparar los datos para la actualización
       const actualizarNotas = [];
-  
-      // 4. Comparar los estudiantes y preparar las actualizaciones
-      for (const alumno of alumnosDelCurso) {
-        // Buscar el estudiante en los datos recibidos desde Excel
-        //console.log(alumno[0])
-        const alumnoEnExcel = data.find(row => row[0] === alumno[0]);
-        //console.log(alumnoEnExcel)
-        
-        if (alumnoEnExcel) {
-          // Si existe, actualizar las calificaciones
-          const index = alumnos.indexOf(alumno);  // Obtener el índice del alumno en el array
-            //console.log(alumnoEnExcel)
-          // Preparar los datos para la actualización en la hoja
-          actualizarNotas.push({
-            range: `Sheet1!E${index + 2}:H${index + 2}`, // Actualiza las columnas de las calificaciones
-            values: [[
-              alumnoEnExcel[2] || '',
-              alumnoEnExcel[3] || '',
-              alumnoEnExcel[4] || '',
-              alumnoEnExcel[5] || ''
-            ]],
+      
+      // Comparar estudiantes y preparar las actualizaciones
+      for (const alumno of alumnos) {
+          const alumnoEnExcel = data.find(row => row[0] === alumno[0]);
+          
+          if (alumnoEnExcel) {
+              const index = alumnos.indexOf(alumno);  // Índice del alumno en la hoja
+              
+              actualizarNotas.push({
+                  range: `${sheetName}!E${index + 2}:H${index + 2}`, // Actualiza notas en columnas E-H
+                  values: [[
+                      alumnoEnExcel[2] || '',
+                      alumnoEnExcel[3] || '',
+                      alumnoEnExcel[4] || '',
+                      alumnoEnExcel[5] || ''
+                  ]],
+              });
+          }
+      }
+      
+      // Realizar la actualización en un solo batchUpdate
+      if (actualizarNotas.length > 0) {
+          await sheets.spreadsheets.values.batchUpdate({
+              spreadsheetId: SPREADSHEET_ID,
+              requestBody: {
+                  data: actualizarNotas,
+                  valueInputOption: "RAW"
+              }
           });
-        }
       }
-  
-      // 5. Realizar la actualización de las calificaciones en Google Sheets
-      for (const actualizacion of actualizarNotas) {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: actualizacion.range,
-          valueInputOption: "RAW",
-          requestBody: {
-            values: actualizacion.values,
-          },
-        });
-      }
-  
+      
       res.status(200).json({ message: "Notas actualizadas correctamente en Google Sheets" });
-    } catch (error) {
+  } catch (error) {
       console.error("Error al cargar las notas:", error);
       res.status(500).json({ error: "Error cargando las notas" });
-    }
-  });
+  }
+});
+
   
 // Ruta para obtener todas las notas desde Google Sheets
 app.get("/api/obtener-notas", async (req, res) => {
