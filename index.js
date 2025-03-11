@@ -40,7 +40,7 @@ app.get("/api/get-alumnos-por-curso", async (req, res) => {
     // Leer directamente la hoja del curso
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${grado}!A:D`,  // Asume que cada curso tiene su propia hoja
+      range: `${grado}!A2:D`,  // Asume que cada curso tiene su propia hoja
     });
 
     const rows = response.data.values;
@@ -142,7 +142,7 @@ app.get("/api/obtener-notas", async (req, res) => {
     // Leer directamente la hoja del curso
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${grado}!A:H`,  // Ajustado para que tome el curso correcto
+      range: `${grado}!A2:H`,  // Ajustado para que tome el curso correcto
     });
 
     const rows = response.data.values;
