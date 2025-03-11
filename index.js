@@ -142,7 +142,7 @@ app.get("/api/obtener-notas", async (req, res) => {
     // Leer directamente la hoja del curso
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${grado}!A:F`,  // Ajustado para que tome el curso correcto
+      range: `${grado}!A:H`,  // Ajustado para que tome el curso correcto
     });
 
     const rows = response.data.values;
