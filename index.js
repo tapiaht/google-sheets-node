@@ -29,34 +29,31 @@ const SPREADSHEET_ID = "15LdTnxKc1bNoWqhsYy9-B5YC2dh05RLlJrzFKQpuZhs";
 
 // Ruta para obtener los alumnos por curso
 app.get("/api/get-alumnos-por-curso", async (req, res) => {
-  const curso = req.query.curso;  // El curso se recibe en la consulta (query)
+  const curso = req.query.curso;  // Recibimos el curso desde la consulta
 
   try {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
-
-    // Rango de la hoja de Google Sheets donde están los alumnos
+    curso=curso.replace(' ', '');
+    // Leer directamente la hoja del curso
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A:D",  // Cambia esto según el formato de tu hoja
+      range: `${curso}!A:D`,  // Asume que cada curso tiene su propia hoja
     });
 
     const rows = response.data.values;
-    console.log(rows.length)
-    if (rows.length) {
-      // Filtrar los alumnos por el curso (en la columna C, por ejemplo)
-      console.log(curso)
-      const alumnos = rows.filter(row => row[3] === curso); // Aquí asumimos que la columna 2 es "curso"
-      console.log(alumnos)
-      res.json({ data: alumnos });
-    } else {
-      res.status(404).json({ message: "No se encontraron alumnos para este curso" });
+    
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ message: "No se encontraron alumnos para este curso" });
     }
+
+    res.json({ data: rows });  // Enviar todos los alumnos encontrados en la hoja correspondiente
   } catch (error) {
     console.error("Error al obtener los alumnos:", error);
     res.status(500).json({ error: "Error al obtener los alumnos" });
   }
 });
+
 
 // Ruta para cargar las notas a Google Sheets
 app.post("/api/cargar-notas", async (req, res) => {
@@ -74,7 +71,7 @@ app.post("/api/cargar-notas", async (req, res) => {
       
       // Determinar la hoja correspondiente al curso (Ejemplo: PRIMEROA, SEGUNDOB, etc.)
       const sheetName = curso.toUpperCase();
-      
+      sheetName = sheetName.replace(' ', '');
       // Leer datos de la hoja específica
       const response = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
@@ -128,21 +125,29 @@ app.post("/api/cargar-notas", async (req, res) => {
   
 // Ruta para obtener todas las notas desde Google Sheets
 app.get("/api/obtener-notas", async (req, res) => {
+  const curso = req.query.curso;  // El curso se recibe en la consulta
+
+  if (!curso) {
+    return res.status(400).json({ error: "El curso es obligatorio" });
+  }
+
   try {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
-
+    curso=curso.replace(' ', '');
+    // Leer directamente la hoja del curso
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A:F",  // Cambia esto según el formato de tu hoja
+      range: `${curso}!A:F`,  // Ajustado para que tome el curso correcto
     });
 
     const rows = response.data.values;
-    if (rows.length) {
-      res.json({ data: rows });
-    } else {
-      res.status(404).json({ message: "No se encontraron notas" });
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ message: `No se encontraron notas para el curso ${curso}` });
     }
+
+    res.json({ data: rows });
   } catch (error) {
     console.error("Error al obtener las notas:", error);
     res.status(500).json({ error: "Error al obtener las notas" });
