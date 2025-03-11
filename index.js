@@ -5,6 +5,14 @@ const app = express();
 require("dotenv").config();
 app.use(bodyParser.json());
 
+const fs = require("fs");
+
+console.log("Ruta de credenciales:", process.env.GOOGLE_APPLICATION_CREDENTIALS);
+if (fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+  console.log("✅ Archivo JSON encontrado");
+} else {
+  console.log("❌ Archivo JSON no encontrado. Verifica la ruta.");
+}
 // Cargar credenciales
 //const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 const auth = new google.auth.GoogleAuth({
@@ -27,13 +35,16 @@ app.get("/api/get-alumnos-por-curso", async (req, res) => {
     // Rango de la hoja de Google Sheets donde están los alumnos
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!B:B",  // Cambia esto según el formato de tu hoja
+      range: "Sheet1!A:D",  // Cambia esto según el formato de tu hoja
     });
 
     const rows = response.data.values;
+    console.log(rows.length)
     if (rows.length) {
       // Filtrar los alumnos por el curso (en la columna C, por ejemplo)
-      const alumnos = rows.filter(row => row[2] === curso); // Aquí asumimos que la columna 2 es "curso"
+      console.log(curso)
+      const alumnos = rows.filter(row => row[3] === curso); // Aquí asumimos que la columna 2 es "curso"
+      console.log(alumnos)
       res.json({ data: alumnos });
     } else {
       res.status(404).json({ message: "No se encontraron alumnos para este curso" });
@@ -61,7 +72,7 @@ app.post("/api/cargar-notas", async (req, res) => {
       // 1. Leer todos los estudiantes del curso desde Google Sheets
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: "Sheet1!A2:E",  // Leer desde la fila 2 (para no sobrescribir encabezados)
+        range: "Sheet1!A2:G",  // Leer desde la fila 2 (para no sobrescribir encabezados)
       });
   
       const alumnos = response.data.values;
@@ -89,7 +100,7 @@ app.post("/api/cargar-notas", async (req, res) => {
             //console.log(alumnoEnExcel)
           // Preparar los datos para la actualización en la hoja
           actualizarNotas.push({
-            range: `Sheet1!D${index + 2}:G${index + 2}`, // Actualiza las columnas de las calificaciones
+            range: `Sheet1!E${index + 2}:H${index + 2}`, // Actualiza las columnas de las calificaciones
             values: [[
               alumnoEnExcel[2] || '',
               alumnoEnExcel[3] || '',
