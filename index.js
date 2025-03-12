@@ -144,10 +144,8 @@ app.get("/api/obtener-notas", async (req, res) => {
       spreadsheetId: SPREADSHEET_ID,
       range: `${grado}!A2:H`,  // Ajustado para que tome el curso correcto
       auth: client,
-       headers: {
-         'Cache-Control': 'no-cache, no-store, must-revalidate', 
-        'Pragma': 'no-cache',
-        'Expires': '0'
+      params: {
+        nocache: new Date().getTime() // Evita el caché agregando un timestamp único
       }
     });
 
