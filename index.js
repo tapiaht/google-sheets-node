@@ -143,10 +143,7 @@ app.get("/api/obtener-notas", async (req, res) => {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `${grado}!A2:H`,  // Ajustado para que tome el curso correcto
-      auth: client,
-      params: {
-        nocache: new Date().getTime() // Evita el caché agregando un timestamp único
-      }
+      
     });
 
     const rows = response.data.values;
@@ -155,6 +152,10 @@ app.get("/api/obtener-notas", async (req, res) => {
     if (!rows || rows.length === 0) {
       return res.status(404).json({ message: `No se encontraron notas para el curso ${grado}` });
     }
+// Evitar el caché en la respuesta
+res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+res.setHeader("Pragma", "no-cache");
+res.setHeader("Expires", "0");
 
     res.json({ data: rows });
   } catch (error) {
