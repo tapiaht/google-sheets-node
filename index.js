@@ -152,6 +152,7 @@ app.get("/api/obtener-notas", async (req, res) => {
     });
 
     const rows = response.data.values;
+    console.log("Datos recuperados de Google Sheets:", JSON.stringify(rows, null, 2));
 
     if (!rows || rows.length === 0) {
       return res.status(404).json({ message: `No se encontraron notas para el curso ${grado}` });
