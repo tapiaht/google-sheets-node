@@ -58,71 +58,154 @@ app.get("/api/get-alumnos-por-curso", async (req, res) => {
 
 
 // Ruta para cargar las notas a Google Sheets
-app.post("/api/cargar-notas", async (req, res) => {
-  const data = req.body.data;  // Datos de las calificaciones desde Excel
-  const curso = req.body.curso;  // Curso seleccionado
+// app.post("/api/cargar-notas", async (req, res) => {
+//   const data = req.body.data;  // Datos de las calificaciones desde Excel
+//   const curso = req.body.curso;  // Curso seleccionado
   
-  try {
-      const client = await auth.getClient();
-      const sheets = google.sheets({ version: "v4", auth: client });
+//   try {
+//       const client = await auth.getClient();
+//       const sheets = google.sheets({ version: "v4", auth: client });
       
-      // Verificar si hay datos
-      if (!data || data.length === 0) {
-          return res.status(400).json({ error: "No se han recibido datos válidos" });
-      }
+//       // Verificar si hay datos
+//       if (!data || data.length === 0) {
+//           return res.status(400).json({ error: "No se han recibido datos válidos" });
+//       }
       
-      // Determinar la hoja correspondiente al curso (Ejemplo: PRIMEROA, SEGUNDOB, etc.)
-      let grado = curso
-      grado = grado.replace(' ', '');
-      // Leer datos de la hoja específica
-      console.log(grado)
-      const response = await sheets.spreadsheets.values.get({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${grado}!A2:G`,  // Leer desde la fila 2
-      });
+//       // Determinar la hoja correspondiente al curso (Ejemplo: PRIMEROA, SEGUNDOB, etc.)
+//       let grado = curso
+//       grado = grado.replace(' ', '');
+//       // Leer datos de la hoja específica
+//       console.log(grado)
+//       const response = await sheets.spreadsheets.values.get({
+//           spreadsheetId: SPREADSHEET_ID,
+//           range: `${grado}!A2:G`,  // Leer desde la fila 2
+//       });
       
-      const alumnos = response.data.values;
-      if (!alumnos) {
-          return res.status(400).json({ error: "No se encontraron datos en la hoja de Google Sheets" });
-      }
+//       const alumnos = response.data.values;
+//       if (!alumnos) {
+//           return res.status(400).json({ error: "No se encontraron datos en la hoja de Google Sheets" });
+//       }
       
-      const actualizarNotas = [];
+//       const actualizarNotas = [];
       
-      // Comparar estudiantes y preparar las actualizaciones
-      for (const alumno of alumnos) {
-          const alumnoEnExcel = data.find(row => row[0] === alumno[0]);
+//       // Comparar estudiantes y preparar las actualizaciones
+//       for (const alumno of alumnos) {
+//           const alumnoEnExcel = data.find(row => row[0] === alumno[0]);
           
-          if (alumnoEnExcel) {
-              const index = alumnos.indexOf(alumno);  // Índice del alumno en la hoja
+//           if (alumnoEnExcel) {
+//               const index = alumnos.indexOf(alumno);  // Índice del alumno en la hoja
               
-              actualizarNotas.push({
-                  range: `${grado}!E${index + 2}:H${index + 2}`, // Actualiza notas en columnas E-H
-                  values: [[
-                      alumnoEnExcel[2] || '',
-                      alumnoEnExcel[3] || '',
-                      alumnoEnExcel[4] || '',
-                      alumnoEnExcel[5] || ''
-                  ]],
-              });
-          }
-      }
+//               actualizarNotas.push({
+//                   range: `${grado}!E${index + 2}:H${index + 2}`, // Actualiza notas en columnas E-H
+//                   values: [[
+//                       alumnoEnExcel[2] || '',
+//                       alumnoEnExcel[3] || '',
+//                       alumnoEnExcel[4] || '',
+//                       alumnoEnExcel[5] || ''
+//                   ]],
+//               });
+//           }
+//       }
       
-      // Realizar la actualización en un solo batchUpdate
-      if (actualizarNotas.length > 0) {
-          await sheets.spreadsheets.values.batchUpdate({
-              spreadsheetId: SPREADSHEET_ID,
-              requestBody: {
-                  data: actualizarNotas,
-                  valueInputOption: "RAW"
-              }
-          });
-      }
+//       // Realizar la actualización en un solo batchUpdate
+//       if (actualizarNotas.length > 0) {
+//           await sheets.spreadsheets.values.batchUpdate({
+//               spreadsheetId: SPREADSHEET_ID,
+//               requestBody: {
+//                   data: actualizarNotas,
+//                   valueInputOption: "RAW"
+//               }
+//           });
+//       }
       
-      res.status(200).json({ message: "Notas actualizadas correctamente en Google Sheets" });
-  } catch (error) {
-      console.error("Error al cargar las notas:", error);
-      res.status(500).json({ error: "Error cargando las notas" });
-  }
+//       res.status(200).json({ message: "Notas actualizadas correctamente en Google Sheets" });
+//   } catch (error) {
+//       console.error("Error al cargar las notas:", error);
+//       res.status(500).json({ error: "Error cargando las notas" });
+//   }
+// });
+app.post("/api/cargar-notas", async (req, res) => {
+    const data = req.body.data;  // Datos de calificaciones desde Excel
+    const curso = req.body.curso;  // Curso seleccionado
+    const trimestre = req.body.trimestre; // Trimestre seleccionado (1, 2 o 3)
+    const materia = req.body.materia; // Materia seleccionada
+
+    try {
+        const client = await auth.getClient();
+        const sheets = google.sheets({ version: "v4", auth: client });
+
+        // Verificar si hay datos
+        if (!data || data.length === 0) {
+            return res.status(400).json({ error: "No se han recibido datos válidos" });
+        }
+
+        // Determinar la hoja del curso (Ejemplo: PRIMEROA, SEGUNDOB, etc.)
+        let grado = curso.replace(" ", "");
+        console.log("Procesando curso:", grado);
+
+        // Obtener todas las columnas de la primera fila para ubicar la correcta
+        const headerResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${grado}!A1:1`,  // Se asume que la fila 1 contiene los títulos de las columnas
+        });
+
+        const headers = headerResponse.data.values[0]; // Lista de nombres de columnas
+
+        // Buscar la columna donde se guardarán las notas de la materia/trimestre
+        const tituloColumna = `${materia}${trimestre}`; // Ejemplo: MAT1, CSO2, FIS3, etc.
+        const columnaIndex = headers.indexOf(tituloColumna); 
+
+        if (columnaIndex === -1) {
+            return res.status(400).json({ error: `No se encontró la columna para ${materia} en el trimestre ${trimestre}` });
+        }
+
+        // Convertir el índice de columna numérico a formato A-Z en Excel
+        const letraColumna = String.fromCharCode(65 + columnaIndex); // 65 = 'A'
+
+        console.log(`📌 Materia: ${materia}, Trimestre: ${trimestre}, Columna: ${letraColumna}`);
+
+        // Obtener los alumnos del curso desde la hoja de Google Sheets
+        const alumnosResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${grado}!A2:A`,  // Obtener solo los IDs de alumnos
+        });
+
+        const alumnos = alumnosResponse.data.values.flat(); // Convertimos en un array plano
+
+        if (!alumnos || alumnos.length === 0) {
+            return res.status(400).json({ error: "No se encontraron alumnos en la hoja" });
+        }
+
+        const actualizarNotas = [];
+
+        // Comparar alumnos y actualizar notas
+        for (const alumnoEnExcel of data) {
+            const index = alumnos.indexOf(alumnoEnExcel[0]); // Buscar por ID
+
+            if (index !== -1) { // Si se encuentra el alumno
+                actualizarNotas.push({
+                    range: `${grado}!${letraColumna}${index + 2}`, // Celda específica
+                    values: [[alumnoEnExcel[1] || '']], // Calificación del alumno
+                });
+            }
+        }
+
+        // Enviar actualización en batch
+        if (actualizarNotas.length > 0) {
+            await sheets.spreadsheets.values.batchUpdate({
+                spreadsheetId: SPREADSHEET_ID,
+                requestBody: {
+                    data: actualizarNotas,
+                    valueInputOption: "RAW"
+                }
+            });
+        }
+
+        res.status(200).json({ message: "Notas actualizadas correctamente en Google Sheets" });
+    } catch (error) {
+        console.error("❌ Error al cargar las notas:", error);
+        res.status(500).json({ error: "Error cargando las notas" });
+    }
 });
 
   
