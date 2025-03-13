@@ -124,6 +124,14 @@ app.get("/api/get-alumnos-por-curso", async (req, res) => {
 //       res.status(500).json({ error: "Error cargando las notas" });
 //   }
 // });
+function getExcelColumnLetter(index) {
+  let columnLetter = "";
+  while (index >= 0) {
+      columnLetter = String.fromCharCode((index % 26) + 65) + columnLetter;
+      index = Math.floor(index / 26) - 1;
+  }
+  return columnLetter;
+}
 app.post("/api/cargar-notas", async (req, res) => {
     const data = req.body.data;  // Datos de calificaciones desde Excel
     const curso = req.body.curso;  // Curso seleccionado
@@ -154,14 +162,15 @@ app.post("/api/cargar-notas", async (req, res) => {
         // Buscar la columna donde se guardarán las notas de la materia/trimestre
         const tituloColumna = `${materia}${trimestre}`; // Ejemplo: MAT1, CSO2, FIS3, etc.
         const columnaIndex = headers.indexOf(tituloColumna); 
-
+        console.log("TituloColumna:", tituloColumna);
+        console.log("columnaIndex:", columnaIndex);
         if (columnaIndex === -1) {
             return res.status(400).json({ error: `No se encontró la columna para ${materia} en el trimestre ${trimestre}` });
         }
 
         // Convertir el índice de columna numérico a formato A-Z en Excel
-        const letraColumna = String.fromCharCode(65 + columnaIndex); // 65 = 'A'
-
+        //const letraColumna = String.fromCharCode(65 + columnaIndex); // 65 = 'A'
+        const letraColumna = getExcelColumnLetter(columnaIndex)
         console.log(`📌 Materia: ${materia}, Trimestre: ${trimestre}, Columna: ${letraColumna}`);
 
         // Obtener los alumnos del curso desde la hoja de Google Sheets
