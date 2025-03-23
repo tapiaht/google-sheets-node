@@ -296,7 +296,7 @@ app.get("/api/obtener-notas-trimestre-materia", async (req, res) => {
       // Obtener nombres y notas de alumnos
       const alumnosResponse = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: `${grado}!A2:B`, // A = ID, B = Nombre
+          range: `${grado}!A2:D`, // A = ID, B = Nombre
       });
 
       const notasResponse = await sheets.spreadsheets.values.get({
@@ -314,7 +314,7 @@ app.get("/api/obtener-notas-trimestre-materia", async (req, res) => {
       // Unir alumnos con sus notas
       const resultado = alumnos.map((alumno, index) => ({
           id: alumno[0], // ID del alumno
-          nombre: alumno[1], // Nombre completo
+          nombre: alumno[3], // Nombre completo
           nota: notas[index] ? notas[index][0] : "N/A", // Nota o "N/A" si está vacía
       }));
 
