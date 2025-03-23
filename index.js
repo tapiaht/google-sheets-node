@@ -375,36 +375,36 @@ app.get("/api/obtener-notas-alumno", async (req, res) => {
 
   // Definir los rangos de búsqueda en un solo array
   const ranges = [
-    "PRIMEROA!A2:C",
-    "PRIMEROB!A2:C",
-    "PRIMEROC!A2:C",
-    "PRIMEROD!A2:C",
-    "PRIMEROE!A2:C",
-    "SEGUNDOA!A2:C",
-    "SEGUNDOB!A2:C",
-    "SEGUNDOC!A2:C",
-    "SEGUNDOD!A2:C",
-    "SEGUNDOE!A2:C",
-    "TERCEROA!A2:C",
-    "TERCEROB!A2:C",
-    "TERCEROC!A2:C",
-    "TERCEROD!A2:C",
-    "TERCEROE!A2:C",
-    "CUARTOA!A2:C",
-    "CUARTOB!A2:C",
-    "CUARTOC!A2:C",
-    "CUARTOD!A2:C",
-    "CUARTOE!A2:C",
-    "QUINTOA!A2:C",
-    "QUINTOB!A2:C",
-    "QUINTOC!A2:C",
-    "QUINTOD!A2:C",
-    "QUINTOE!A2:C",
-    "SEXTOA!A2:C",
-    "SEXTOB!A2:C",
-    "SEXTOC!A2:C",
-    "SEXTOD!A2:C",
-    "SEXTOE!A2:C"
+    "PRIMEROA!C2:C",
+    "PRIMEROB!C2:C",
+    "PRIMEROC!C2:C",
+    "PRIMEROD!C2:C",
+    "PRIMEROE!C2:C",
+    "SEGUNDOA!C2:C",
+    "SEGUNDOB!C2:C",
+    "SEGUNDOC!C2:C",
+    "SEGUNDOD!C2:C",
+    "SEGUNDOE!C2:C",
+    "TERCEROA!C2:C",
+    "TERCEROB!C2:C",
+    "TERCEROC!C2:C",
+    "TERCEROD!C2:C",
+    "TERCEROE!C2:C",
+    "CUARTOA!C2:C",
+    "CUARTOB!C2:C",
+    "CUARTOC!C2:C",
+    "CUARTOD!C2:C",
+    "CUARTOE!C2:C",
+    "QUINTOA!C2:C",
+    "QUINTOB!C2:C",
+    "QUINTOC!C2:C",
+    "QUINTOD!C2:C",
+    "QUINTOE!C2:C",
+    "SEXTOA!C2:C",
+    "SEXTOB!C2:C",
+    "SEXTOC!C2:C",
+    "SEXTOD!C2:C",
+    "SEXTOE!C2:C"
   ]; // Rangos de todas las hojas con las columnas necesarias (CI, Nombre, Nota)
 
   try {
@@ -413,7 +413,7 @@ app.get("/api/obtener-notas-alumno", async (req, res) => {
 
     // Obtener todos los datos de los rangos de manera eficiente con batchGet
     const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: 'YOUR_SPREADSHEET_ID', // ID de tu hoja de cálculo
+      spreadsheetId: SPREADSHEET_ID, // ID de tu hoja de cálculo
       ranges: ranges
     });
 
@@ -421,34 +421,48 @@ app.get("/api/obtener-notas-alumno", async (req, res) => {
     const sheetsData = response.data.valueRanges;
 
     let curso = null;
+    let filaAlumno
+    let alumnoData = null;
     let materiasNotas = [];
 
     // Buscar el CI en todas las hojas
     for (const sheetData of sheetsData) {
       const alumnos = sheetData.values || [];
 
-      // Buscar el CI del alumno en la columna A (CI)
+      // Buscar el CI del alumno en la columna C (CI)
       for (let i = 0; i < alumnos.length; i++) {
         const alumno = alumnos[i];
-
+        
+        // Verifica que el CI en la columna C (índice 2) sea el CI del alumno
         if (alumno[0] === ci) {
-          // Si encontramos el CI, determinamos el curso
+          // Si encontramos el CI, determinamos el curso y el resto de los datos
           curso = sheetData.range.split('!')[0];  // Extraemos el nombre del curso (hoja)
+
+          // Guardamos toda la información del alumno
+          alumnoData = {
+            //nombre: alumno[1],  // Suponiendo que el nombre está en la columna B (índice 1)
+            ci: alumno[0],      // El CI está en la columna C (índice 2)
+            fila:i+2
+            //curso: curso
+          };
+          filaAlumno = alumnoData.fila; // Ejemplo: 5 (si el alumno está en la fila 5)
+          // Salimos del bucle si encontramos el alumno
           break;
         }
       }
 
-      if (curso) break;  // Si encontramos el CI, salimos del bucle
+      if (alumnoData) break;  // Si encontramos el CI, salimos del bucle
     }
 
-    if (!curso) {
+    // Si no encontramos al alumno con ese CI, devolvemos un error
+    if (!alumnoData) {
       return res.status(400).json({ error: "No se encontró al alumno con ese CI." });
     }
 
     // Ahora obtenemos todas las notas de las materias del curso
     // Realizamos un batchGet para las notas de todas las materias en el curso
     const headerResponse = await sheets.spreadsheets.values.get({
-      spreadsheetId: 'YOUR_SPREADSHEET_ID',
+      spreadsheetId: SPREADSHEET_ID,
       range: `${curso}!A1:1`, // Obtener la fila de encabezados
     });
 
@@ -460,8 +474,9 @@ app.get("/api/obtener-notas-alumno", async (req, res) => {
       
       // Obtener las notas de esta materia en el curso
       const notasResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId: 'YOUR_SPREADSHEET_ID',
-        range: `${curso}!${getExcelColumnLetter(i)}2:${getExcelColumnLetter(i)}`,
+        spreadsheetId: SPREADSHEET_ID,
+        //range: `${curso}!${getExcelColumnLetter(i)}:${getExcelColumnLetter(i)}`,
+        range : `${curso}!${getExcelColumnLetter(i)}${filaAlumno}:${getExcelColumnLetter(i)}${filaAlumno}`,
       });
 
       const notas = notasResponse.data.values || [];
@@ -476,15 +491,17 @@ app.get("/api/obtener-notas-alumno", async (req, res) => {
       }
     }
 
-    // Devolvemos la respuesta con el curso y las materias con sus notas
-    res.status(200).json({ curso, data: materiasNotas });
+    // Devolvemos la respuesta con toda la información del alumno (nombre, curso, notas)
+    res.status(200).json({
+      alumno: alumnoData,
+      materiasNotas: materiasNotas
+    });
 
   } catch (error) {
     console.error("❌ Error al obtener notas:", error);
     res.status(500).json({ error: "Error obteniendo notas" });
   }
 });
-
 
 
 // Iniciar el servidor
