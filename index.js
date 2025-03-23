@@ -343,6 +343,10 @@ app.get("/api/obtener-notas-alumno", async (req, res) => {
   try {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
+   // Obtener los metadatos del documento de Google Sheets
+    const res = await sheets.spreadsheets.get({
+    spreadsheetId,
+    })
 
     if (!ci) { 
       return res.status(400).json({ error: "Faltan parámetros (CI)" });
