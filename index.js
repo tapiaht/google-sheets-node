@@ -256,6 +256,75 @@ res.setHeader("Expires", "0");
   }
 });
 
+app.get("/api/obtener-notas-trimestre-materia", async (req, res) => {
+  const curso = req.query.curso; // Curso (ejemplo: Primero A)
+  const trimestre = req.query.trimestre; // Trimestre (1, 2 o 3)
+  const materia = req.query.materia; // Materia (MAT, CSO, etc.)
+
+  try {
+      const client = await auth.getClient();
+      const sheets = google.sheets({ version: "v4", auth: client });
+
+      if (!curso || !trimestre || !materia) {
+          return res.status(400).json({ error: "Faltan parámetros (curso, trimestre o materia)" });
+      }
+
+      // Determinar la hoja del curso (Ejemplo: PRIMEROA, SEGUNDOB, etc.)
+      let grado = curso.replace(" ", "").toUpperCase();
+      console.log(`📌 Obteniendo notas de: Curso: ${grado}, Materia: ${materia}, Trimestre: ${trimestre}`);
+
+      // Obtener encabezados de la hoja (Fila 1)
+      const headerResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${grado}!A1:1`, // Primera fila con títulos
+      });
+
+      const headers = headerResponse.data.values[0];
+
+      // Buscar la columna de la materia y trimestre
+      const tituloColumna = `${materia}${trimestre}`; // Ejemplo: MAT1, CSO2, FIS3, etc.
+      const columnaIndex = headers.indexOf(tituloColumna);
+
+      if (columnaIndex === -1) {
+          return res.status(400).json({ error: `No se encontró la columna de ${materia} en el trimestre ${trimestre}` });
+      }
+
+      // Convertir índice numérico en letra de Excel
+      const letraColumna = getExcelColumnLetter(columnaIndex);
+      console.log(`📌 Columna encontrada: ${letraColumna}`);
+
+      // Obtener nombres y notas de alumnos
+      const alumnosResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${grado}!A2:B`, // A = ID, B = Nombre
+      });
+
+      const notasResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${grado}!${letraColumna}2:${letraColumna}`, // Notas desde la fila 2
+      });
+
+      const alumnos = alumnosResponse.data.values || [];
+      const notas = notasResponse.data.values || [];
+
+      if (alumnos.length === 0) {
+          return res.status(400).json({ error: "No se encontraron alumnos" });
+      }
+
+      // Unir alumnos con sus notas
+      const resultado = alumnos.map((alumno, index) => ({
+          id: alumno[0], // ID del alumno
+          nombre: alumno[1], // Nombre completo
+          nota: notas[index] ? notas[index][0] : "N/A", // Nota o "N/A" si está vacía
+      }));
+
+      res.status(200).json({ curso, materia, trimestre, data: resultado });
+  } catch (error) {
+      console.error("❌ Error al obtener notas:", error);
+      res.status(500).json({ error: "Error obteniendo notas" });
+  }
+});
+
 // Iniciar el servidor
 app.listen(3000, () => {
   console.log("Servidor corriendo en http://localhost:3000");
