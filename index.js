@@ -345,7 +345,7 @@ app.get("/api/obtener-notas-alumno", async (req, res) => {
     const sheets = google.sheets({ version: "v4", auth: client });
    // Obtener los metadatos del documento de Google Sheets
     const res = await sheets.spreadsheets.get({
-    spreadsheetId,
+      SPREADSHEET_ID,
     })
 
     if (!ci) { 
