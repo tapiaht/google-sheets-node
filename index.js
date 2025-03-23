@@ -132,6 +132,18 @@ function getExcelColumnLetter(index) {
   }
   return columnLetter;
 }
+
+// Función para obtener la letra de la columna de Excel
+// function getExcelColumnLetter(col) {
+//   let temp;
+//   let letter = '';
+//   while (col >= 0) {
+//     temp = col % 26;
+//     letter = String.fromCharCode(temp + 65) + letter;
+//     col = Math.floor(col / 26) - 1;
+//   }
+//   return letter;
+// }
 app.post("/api/cargar-notas", async (req, res) => {
     const data = req.body.data;  // Datos de calificaciones desde Excel
     const curso = req.body.curso;  // Curso seleccionado
@@ -324,6 +336,84 @@ app.get("/api/obtener-notas-trimestre-materia", async (req, res) => {
       res.status(500).json({ error: "Error obteniendo notas" });
   }
 });
+// API para obtener notas de un alumno específico por su CI
+app.get("/api/obtener-notas-alumno", async (req, res) => {
+  const { ci } = req.query;  // Obtenemos el CI del query string
+  
+  try {
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: "v4", auth: client });
+
+    if (!ci) { 
+      return res.status(400).json({ error: "Faltan parámetros (CI)" });
+    }
+
+    // Buscar en todas las hojas el CI del alumno para determinar a qué curso pertenece
+    //const cursos = ["PRIMEROA", "PRIMEROB", "SEGUNDOA", "SEGUNDOB", "TERCEROA", "TERCEROB", "CUARTOA", "CUARTOB", "QUINTOA", "QUINTOB", "SEXTOA", "SEXTOB", "SEXTOC", "SEXTOE"];
+    const cursos = res.data.sheets.map(sheet => sheet.properties.title);
+    let curso = null;
+
+    // Buscar el CI en todas las hojas
+    for (const grado of cursos) {
+      const alumnosResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${grado}!C2:C`, // Columna A: CI del alumno
+      });
+
+      const alumnos = alumnosResponse.data.values || [];
+
+      // Comprobar si el CI existe en esta hoja
+      if (alumnos.some((alumno) => alumno[0] === ci)) {
+        curso = grado;
+        break;
+      }
+    }
+
+    if (!curso) {
+      return res.status(400).json({ error: "No se encontró al alumno con ese CI." });
+    }
+
+    // Obtener encabezados de la hoja (Fila 1)
+    const headerResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${curso}!A1:1`, // Primera fila con títulos
+    });
+
+    const headers = headerResponse.data.values[0];
+
+    // Obtener todas las materias y notas del alumno
+    const materiasNotas = [];
+
+    // Iteramos por las columnas (de materias)
+    for (let i = 1; i < headers.length; i++) {
+      const columnaMateria = headers[i];
+
+      // Obtenemos las notas de esta materia
+      const notasResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${curso}!${getExcelColumnLetter(i)}2:${getExcelColumnLetter(i)}`, // Notas desde la fila 2
+      });
+
+      const notas = notasResponse.data.values || [];
+      const nota = notas.find(nota => nota[0] !== undefined); // Obtenemos la nota del alumno
+
+      if (nota) {
+        // Añadimos la materia con su respectiva nota
+        materiasNotas.push({
+          materia: columnaMateria,
+          nota: nota[0],
+        });
+      }
+    }
+
+    res.status(200).json({ curso, data: materiasNotas });
+  } catch (error) {
+    console.error("❌ Error al obtener notas:", error);
+    res.status(500).json({ error: "Error obteniendo notas" });
+  }
+});
+
+
 
 // Iniciar el servidor
 app.listen(3000, () => {
