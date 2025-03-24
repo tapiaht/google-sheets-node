@@ -1,14 +1,22 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const { google } = require("googleapis");
+import express, { json, urlencoded } from "express";
+//const bodyParser = require("body-parser");
+import { google } from "googleapis";
+import cors from "cors";
 const app = express();
-require("dotenv").config();
-app.use(bodyParser.json());
+import dotenv from "dotenv";
+dotenv.config();
 
-const fs = require("fs");
+app.use(cors()); // Habilita CORS para todas las rutas
+//app.use(bodyParser.json());
+//app.use(bodyParser.urlencoded({ extended: true })); // Para formularios
+app.use(express.json()); // Necesario para procesar JSON en las peticiones
+//app.use(urlencoded({ extended: true })); // Parsea datos de formularios
+app.use(express.urlencoded({ extended: true }));
+
+import { writeFileSync } from "fs";
 if (process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64) {
   const jsonFilePath = "/tmp/google-key.json"; // Ruta temporal en Railway
-  fs.writeFileSync(jsonFilePath, Buffer.from(process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64, "base64").toString("utf-8"));
+  writeFileSync(jsonFilePath, Buffer.from(process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64, "base64").toString("utf-8"));
   
   // Configurar la variable GOOGLE_APPLICATION_CREDENTIALS
   process.env.GOOGLE_APPLICATION_CREDENTIALS = jsonFilePath;
@@ -27,6 +35,17 @@ const auth = new google.auth.GoogleAuth({
 // ID de la hoja de Google Sheets
 const SPREADSHEET_ID = "15LdTnxKc1bNoWqhsYy9-B5YC2dh05RLlJrzFKQpuZhs";
 
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    console.error("Error en el JSON:", err);
+    return res.status(400).json({ error: "JSON inválido en el cuerpo de la solicitud" });
+  }
+  next();
+});
+app.use((req, res, next) => {
+  console.log("Cuerpo de la solicitud:", req.body);
+  next();
+});
 // Ruta para obtener los alumnos por curso
 app.get("/api/get-alumnos-por-curso", async (req, res) => {
   const curso = req.query.curso;  // Recibimos el curso desde la consulta
@@ -336,36 +355,7 @@ app.get("/api/obtener-notas-trimestre-materia", async (req, res) => {
       res.status(500).json({ error: "Error obteniendo notas" });
   }
 });
-async function obtenerNombresHojas() {
-  try {
-    // Primero, obtienes el cliente de autenticación
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: "v4", auth: client });
-    const spreadsheetId = 'YOUR_SPREADSHEET_ID'; // Reemplaza con tu ID de hoja de cálculo
 
-    // Obtener los metadatos del documento de Google Sheets
-    const res = await sheets.spreadsheets.get({
-      spreadsheetId,
-    });
-
-    // Asegúrate de que la respuesta contiene las hojas
-    if (!res.data.sheets) {
-      console.error("No se encontraron hojas en la hoja de cálculo.");
-      return [];
-    }
-
-    // Extraer los nombres de las hojas
-    const hojas = res.data.sheets.map(sheet => sheet.properties.title);
-
-    // Imprimir en consola para ver los nombres de las hojas
-    console.log("Nombres de las hojas:", hojas);
-
-    return hojas;
-  } catch (error) {
-    console.error("Error obteniendo nombres de hojas:", error);
-    return [];
-  }
-}
 // API para obtener notas de un alumno específico por su CI
 app.get("/api/obtener-notas-alumno", async (req, res) => {
   const { ci } = req.query;  // Obtenemos el CI del query string
@@ -502,9 +492,103 @@ app.get("/api/obtener-notas-alumno", async (req, res) => {
     res.status(500).json({ error: "Error obteniendo notas" });
   }
 });
+async function obtenerDatosDesdeSheet(hoja, columna, valor) {
+  try {
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: "v4", auth: client });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${hoja}!A:AR`, // Obtenemos todas las columnas
+    });
+
+    const datos = response.data.values || [];
+    
+    // Buscamos el usuario por su RUDE o RDA en la columna especificada
+    const usuario = datos.find(row => row[columna] === valor);
+    
+    if (!usuario) return null;
+
+    return {
+      rude_rda: usuario[2],
+      nombre: usuario[3],
+      cursos: usuario[4] || "Sin cursos asignados",
+    };
+  } catch (error) {
+    console.error("Error al obtener datos:", error);
+    return null;
+  }
+};
+
+// 📌 Endpoint para autenticación
+// app.post("/api/login", async (req, res) => {
+//   const { tipo, ci_rda } = req.body;
+//   console.log(tipo)
+//   if (!tipo || !ci_rda) {
+//     return res.status(400).json({ error: "Faltan datos de inicio de sesión" });
+//   }
+
+//   let hoja = "";
+//   let columna = 0;
+
+//   if (tipo === "alumno") {
+//     hoja = "PRIMEROA";
+//     columna = 2; // Asegúrate de que esta es la columna correcta del RUDE
+//   } else if (tipo === "docente") {
+//     hoja = "Docentes";
+//     columna = 0; // Asegúrate de que esta es la columna correcta del RDA
+//   } else {
+//     return res.status(400).json({ error: "Tipo de usuario inválido" });
+//   }
+
+//   // Buscar en Google Sheets
+//   const usuario = await obtenerDatosDesdeSheet(hoja, columna, ci_rda);
+
+//   if (!usuario) {
+//     return res.status(404).json({ error: "Usuario no encontrado" });
+//   }
+
+//   res.json({ mensaje: "Inicio de sesión exitoso", usuario });
+// });
+
+app.post("/api/login", async (req, res) => {
+  console.log("Datos recibidos:", req.body); // Verifica qué está llegando
+  
+  const { tipo, ci_rda } = req.body;
+  
+  if (!tipo || !ci_rda) {
+      return res.status(400).json({ error: "Faltan datos de inicio de sesión" });
+  }
+
+  try {
+      // Aquí puedes agregar la lógica para validar el usuario
+      // Por ejemplo, buscar en la base de datos o en Google Sheets
+      let usuario
+      if (tipo==="docente"){
+       usuario = await obtenerDatosDesdeSheet("Docentes", 2, ci_rda); // Ajusta "Hoja1" y el índice de la columna según tu caso
+      }
+      else {
+        usuario = await obtenerDatosDesdeSheet("PRIMEROA", 2, ci_rda); // Ajusta "Hoja1" y el índice de la columna según tu caso
+      }
+      if (!usuario) {
+          return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+
+      // Si el usuario es válido, devuelve los datos del usuario
+      res.json({ mensaje: "Inicio de sesión exitoso", usuario });
+  } catch (error) {
+      console.error("Error en el login:", error);
+      res.status(500).json({ error: "Error en el servidor" });
+  }
+});
 
 
 // Iniciar el servidor
-app.listen(3000, () => {
-  console.log("Servidor corriendo en http://localhost:3000");
+// app.listen(3007, () => {
+//   console.log("Servidor corriendo en http://localhost:3007");
+// });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en url y puerto  http://localhost:${PORT}`);
 });
