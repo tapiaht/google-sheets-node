@@ -590,5 +590,5 @@ app.post("/api/login", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en url y puerto  http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en url y puerto railway http://localhost:${PORT}`);
 });
